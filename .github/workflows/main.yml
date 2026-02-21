@@ -2,7 +2,7 @@ name: 🤖 News Bot - Toutes les heures
 
 on:
   schedule:
-    - cron: '0 * * * *'   # Toutes les heures pile
+    - cron: '0,25,50 * * * *'   # Toutes les 25 minutes
   workflow_dispatch:        # Permet de lancer manuellement aussi
 
 jobs:
