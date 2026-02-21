@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-🤖 Bot Telegram - Actualités automatiques toutes les heures
-Canal : @news045_au
+🤖 Bot Telegram - Actualités automatiques
+Version GitHub Actions : s'exécute une fois puis s'arrête
+Le scheduling est géré par GitHub Actions (cron toutes les heures)
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -16,38 +16,33 @@ from typing import Optional
 
 import requests
 import feedparser
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
+import asyncio
 
 # ══════════════════════════════════════════════════════════
-#  CONFIGURATION
+#  CONFIGURATION (via variables d'environnement GitHub Secrets)
 # ══════════════════════════════════════════════════════════
-TELEGRAM_TOKEN = "7859076867:AAFYncHzIyWQy4e33sdOBWqNT99o1y071Dk"
-CHANNEL_ID     = "@news045_au"
-NEWSAPI_KEY    = "53eceee868644534be1e9a9e4c603c93"
-GNEWS_KEY      = "b3e2694bfdd266d8bf88002d5f139316"
-PEXELS_KEY     = "XUxuIECreEKPoSl8oE6YiyEilIjPSqo1pc3u39FeVbzpHLEMSfDkZ46B"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+CHANNEL_ID     = os.environ.get("CHANNEL_ID", "@news045_au")
+NEWSAPI_KEY    = os.environ.get("NEWSAPI_KEY", "")
+GNEWS_KEY      = os.environ.get("GNEWS_KEY", "")
+PEXELS_KEY     = os.environ.get("PEXELS_KEY", "")
 
-POSTED_FILE    = "posted_articles.json"
-INTERVAL_HOURS = 1  # Modifier ici pour changer la fréquence
+POSTED_FILE = "posted_articles.json"
 
 # ══════════════════════════════════════════════════════════
 #  LOGGING
 # ══════════════════════════════════════════════════════════
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("bot.log", encoding="utf-8")
-    ]
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
 log = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════
-#  GESTION DES ARTICLES DÉJÀ POSTÉS (évite les doublons)
+#  GESTION DES ARTICLES DÉJÀ POSTÉS
 # ══════════════════════════════════════════════════════════
 def load_posted() -> set:
     if Path(POSTED_FILE).exists():
@@ -56,7 +51,7 @@ def load_posted() -> set:
     return set()
 
 def save_posted(posted: set):
-    data = list(posted)[-500:]  # Garde seulement les 500 derniers
+    data = list(posted)[-500:]
     with open(POSTED_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
 
@@ -67,18 +62,12 @@ def fetch_newsapi() -> list:
     try:
         r = requests.get(
             "https://newsapi.org/v2/top-headlines",
-            params={
-                "apiKey": NEWSAPI_KEY,
-                "language": "fr",
-                "pageSize": 15
-            },
+            params={"apiKey": NEWSAPI_KEY, "language": "fr", "pageSize": 15},
             timeout=10
         )
         data = r.json()
         if data.get("status") != "ok":
-            log.warning(f"NewsAPI status: {data.get('status')} | {data.get('message')}")
             return []
-
         articles = []
         for a in data.get("articles", []):
             if a.get("title") and a.get("url") and "[Removed]" not in a.get("title", ""):
@@ -102,12 +91,7 @@ def fetch_gnews() -> list:
     try:
         r = requests.get(
             "https://gnews.io/api/v4/top-headlines",
-            params={
-                "token":    GNEWS_KEY,
-                "lang":     "fr",
-                "country":  "fr",
-                "max":      15
-            },
+            params={"token": GNEWS_KEY, "lang": "fr", "country": "fr", "max": 15},
             timeout=10
         )
         data = r.json()
@@ -128,14 +112,14 @@ def fetch_gnews() -> list:
         return []
 
 # ══════════════════════════════════════════════════════════
-#  SOURCE 3 : RSS FEEDS (fallback, sans clé API)
+#  SOURCE 3 : RSS FEEDS
 # ══════════════════════════════════════════════════════════
 RSS_FEEDS = [
-    ("Le Monde",     "https://www.lemonde.fr/rss/une.xml"),
-    ("Le Figaro",    "https://www.lefigaro.fr/rss/figaro_actualites.xml"),
-    ("France Info",  "https://www.francetvinfo.fr/titres.rss"),
-    ("RFI",          "https://www.rfi.fr/fr/rss"),
-    ("20 Minutes",   "https://www.20minutes.fr/feeds/rss/une"),
+    ("Le Monde",    "https://www.lemonde.fr/rss/une.xml"),
+    ("Le Figaro",   "https://www.lefigaro.fr/rss/figaro_actualites.xml"),
+    ("France Info", "https://www.francetvinfo.fr/titres.rss"),
+    ("RFI",         "https://www.rfi.fr/fr/rss"),
+    ("20 Minutes",  "https://www.20minutes.fr/feeds/rss/une"),
 ]
 
 def fetch_rss() -> list:
@@ -145,7 +129,6 @@ def fetch_rss() -> list:
             feed = feedparser.parse(url)
             for entry in feed.entries[:5]:
                 image = None
-                # Cherche l'image dans différents champs RSS
                 if hasattr(entry, "media_content") and entry.media_content:
                     image = entry.media_content[0].get("url")
                 elif hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
@@ -154,36 +137,17 @@ def fetch_rss() -> list:
                     enc = entry.enclosures[0]
                     if enc.get("type", "").startswith("image"):
                         image = enc.get("url")
-                
                 title = entry.get("title", "").strip()
                 desc  = re.sub(r'<[^>]+>', '', entry.get("summary", "")).strip()
                 link  = entry.get("link", "")
-
                 if title and link:
                     articles.append({
-                        "title":       title,
-                        "description": desc,
-                        "url":         link,
-                        "image":       image,
-                        "source":      source
+                        "title": title, "description": desc,
+                        "url": link, "image": image, "source": source
                     })
         except Exception as e:
             log.error(f"RSS {source} ❌ {e}")
-
     log.info(f"RSS ✅ {len(articles)} articles")
-    return articles
-
-# ══════════════════════════════════════════════════════════
-#  RÉCUPÉRATION GLOBALE (avec fallbacks)
-# ══════════════════════════════════════════════════════════
-def get_articles() -> list:
-    articles = fetch_newsapi()
-    if len(articles) < 3:
-        articles += fetch_gnews()
-    if len(articles) < 3:
-        articles += fetch_rss()
-    # Shuffle pour varier les sources
-    random.shuffle(articles)
     return articles
 
 # ══════════════════════════════════════════════════════════
@@ -191,12 +155,8 @@ def get_articles() -> list:
 # ══════════════════════════════════════════════════════════
 def get_pexels_image(query: str) -> Optional[str]:
     try:
-        # Extrait les 3 premiers mots utiles du titre
         mots = re.sub(r'[^a-zA-ZÀ-ÿ\s]', ' ', query).split()[:3]
-        q = " ".join(mots)
-        if not q.strip():
-            q = "actualités monde"
-
+        q = " ".join(mots) or "actualités monde"
         r = requests.get(
             "https://api.pexels.com/v1/search",
             headers={"Authorization": PEXELS_KEY},
@@ -205,15 +165,11 @@ def get_pexels_image(query: str) -> Optional[str]:
         )
         photos = r.json().get("photos", [])
         if photos:
-            photo = random.choice(photos)
-            return photo["src"]["large"]
+            return random.choice(photos)["src"]["large"]
     except Exception as e:
         log.error(f"Pexels ❌ {e}")
     return None
 
-# ══════════════════════════════════════════════════════════
-#  VÉRIFICATION QUE L'URL IMAGE EST VALIDE
-# ══════════════════════════════════════════════════════════
 def is_valid_image_url(url: str) -> bool:
     if not url:
         return False
@@ -225,7 +181,7 @@ def is_valid_image_url(url: str) -> bool:
         return False
 
 # ══════════════════════════════════════════════════════════
-#  FORMATAGE DU MESSAGE TELEGRAM
+#  FORMATAGE DU MESSAGE
 # ══════════════════════════════════════════════════════════
 def format_message(article: dict) -> str:
     title  = article["title"]
@@ -233,11 +189,8 @@ def format_message(article: dict) -> str:
     url    = article["url"]
     source = article.get("source", "")
     now    = datetime.now().strftime("%d/%m/%Y • %Hh%M")
-
-    # Tronque la description si trop longue
     if len(desc) > 350:
         desc = desc[:347].rsplit(" ", 1)[0] + "..."
-
     msg = f"📰 <b>{title}</b>\n\n"
     if desc:
         msg += f"{desc}\n\n"
@@ -246,48 +199,48 @@ def format_message(article: dict) -> str:
     return msg
 
 # ══════════════════════════════════════════════════════════
-#  ENVOI DANS LE CANAL
+#  FONCTION PRINCIPALE
 # ══════════════════════════════════════════════════════════
-async def post_news():
-    log.info("═" * 50)
-    log.info("⏰ Récupération des actualités en cours...")
+async def main():
+    log.info("🤖 Bot démarré - GitHub Actions")
 
-    bot     = Bot(token=TELEGRAM_TOKEN)
-    posted  = load_posted()
-    articles = get_articles()
+    # Récupère les articles
+    articles = fetch_newsapi()
+    if len(articles) < 3:
+        articles += fetch_gnews()
+    if len(articles) < 3:
+        articles += fetch_rss()
+    random.shuffle(articles)
 
     if not articles:
-        log.warning("⚠️ Aucun article récupéré depuis toutes les sources !")
+        log.error("❌ Aucun article trouvé !")
         return
 
-    # Sélectionne le premier article non encore posté
+    # Évite les doublons
+    posted  = load_posted()
     article = None
     for a in articles:
         if a["url"] not in posted:
             article = a
             break
 
-    # Si tous déjà postés → on reset le cache
     if not article:
-        log.info("🔄 Tous les articles ont déjà été postés → reset du cache")
+        log.info("🔄 Reset du cache des articles")
         posted.clear()
         article = articles[0]
 
-    log.info(f"📄 Article sélectionné : {article['title'][:60]}...")
+    log.info(f"📄 Article : {article['title'][:60]}...")
 
-    # Récupère l'image
+    # Image
     image_url = article.get("image")
     if image_url and not is_valid_image_url(image_url):
-        log.info("⚠️ Image de l'article invalide → recherche Pexels")
         image_url = None
-
     if not image_url:
-        log.info("🖼️ Recherche image Pexels...")
         image_url = get_pexels_image(article["title"])
 
     message = format_message(article)
+    bot = Bot(token=TELEGRAM_TOKEN)
 
-    # Envoi
     try:
         if image_url:
             await bot.send_photo(
@@ -310,49 +263,19 @@ async def post_news():
         save_posted(posted)
 
     except TelegramError as e:
-        err = str(e).lower()
         log.error(f"Telegram ❌ {e}")
-
-        # Si l'image plante → réessaie sans image
-        if image_url and ("wrong type" in err or "failed to get" in err or "url" in err):
-            log.info("🔁 Tentative sans image...")
+        if image_url:
             try:
                 await bot.send_message(
                     chat_id=CHANNEL_ID,
                     text=message,
-                    parse_mode=ParseMode.HTML,
-                    disable_web_page_preview=False
+                    parse_mode=ParseMode.HTML
                 )
                 posted.add(article["url"])
                 save_posted(posted)
-                log.info("✅ Article posté sans image (fallback OK)")
+                log.info("✅ Posté sans image (fallback OK)")
             except TelegramError as e2:
-                log.error(f"Erreur fatale Telegram ❌ {e2}")
-
-# ══════════════════════════════════════════════════════════
-#  POINT D'ENTRÉE PRINCIPAL
-# ══════════════════════════════════════════════════════════
-async def main():
-    log.info("🤖 Bot Actualités démarré !")
-    log.info(f"📢 Canal : {CHANNEL_ID}")
-    log.info(f"⏱️  Fréquence : toutes les {INTERVAL_HOURS}h")
-
-    # Premier post immédiat au démarrage
-    await post_news()
-
-    # Scheduler toutes les heures
-    scheduler = AsyncIOScheduler(timezone="Europe/Paris")
-    scheduler.add_job(post_news, "interval", hours=INTERVAL_HOURS, id="news_job")
-    scheduler.start()
-
-    log.info(f"✅ Scheduler actif → prochain post dans {INTERVAL_HOURS}h")
-
-    try:
-        while True:
-            await asyncio.sleep(60)
-    except (KeyboardInterrupt, SystemExit):
-        scheduler.shutdown()
-        log.info("🛑 Bot arrêté proprement.")
+                log.error(f"Erreur fatale ❌ {e2}")
 
 if __name__ == "__main__":
     asyncio.run(main())
