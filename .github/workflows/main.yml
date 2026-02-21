@@ -1,0 +1,31 @@
+name: 🤖 News Bot - Toutes les heures
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Toutes les heures pile
+  workflow_dispatch:        # Permet de lancer manuellement aussi
+
+jobs:
+  post-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Installer Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: 📰 Lancer le bot
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHANNEL_ID:     ${{ secrets.CHANNEL_ID }}
+          NEWSAPI_KEY:    ${{ secrets.NEWSAPI_KEY }}
+          GNEWS_KEY:      ${{ secrets.GNEWS_KEY }}
+          PEXELS_KEY:     ${{ secrets.PEXELS_KEY }}
+        run: python bot.py
