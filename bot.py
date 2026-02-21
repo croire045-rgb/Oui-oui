@@ -118,15 +118,22 @@ RSS_FEEDS = [
     # 🌍 Actualités générales
     ("Le Monde",          "https://www.lemonde.fr/rss/une.xml"),
     ("Le Figaro",         "https://www.lefigaro.fr/rss/figaro_actualites.xml"),
+    ("Le Monde Économie", "https://www.lemonde.fr/economie/rss_full.xml"),
     ("France Info",       "https://www.francetvinfo.fr/titres.rss"),
     ("RFI",               "https://www.rfi.fr/fr/rss"),
+    ("BFM Business",      "https://www.bfmtv.com/rss/economie/"),
+    ("Capital",           "https://www.capital.fr/feed"),
     ("20 Minutes",        "https://www.20minutes.fr/feeds/rss/une"),
     # 💰 Économie & Finance
     ("Les Échos",         "https://www.lesechos.fr/rss/rss_une.xml"),
-    ("BFM Business",      "https://www.bfmtv.com/rss/economie/"),
-    ("Le Monde Économie", "https://www.lemonde.fr/economie/rss_full.xml"),
-    ("Capital",           "https://www.capital.fr/feed"),
     ("Boursorama",        "https://www.boursorama.com/rss/actualites/"),
+    # 🌍 Actualités Africaines
+    ("Jeune Afrique",     "https://www.jeuneafrique.com/feed/"),
+    ("Africa News",       "https://fr.africanews.com/feed/"),
+    ("RFI Afrique",       "https://www.rfi.fr/fr/afrique/rss"),
+    ("Agence Ecofin",     "https://www.agenceecofin.com/rss/tous-les-communiques"),
+    ("Adiac Congo",       "https://www.adiac-congo.com/rss.xml"),
+    ("Congo Indépendant", "https://www.congoindependant.com/feed/"),
 ]
 
 def fetch_rss() -> list:
