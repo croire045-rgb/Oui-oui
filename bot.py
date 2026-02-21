@@ -115,11 +115,18 @@ def fetch_gnews() -> list:
 #  SOURCE 3 : RSS FEEDS
 # ══════════════════════════════════════════════════════════
 RSS_FEEDS = [
-    ("Le Monde",    "https://www.lemonde.fr/rss/une.xml"),
-    ("Le Figaro",   "https://www.lefigaro.fr/rss/figaro_actualites.xml"),
-    ("France Info", "https://www.francetvinfo.fr/titres.rss"),
-    ("RFI",         "https://www.rfi.fr/fr/rss"),
-    ("20 Minutes",  "https://www.20minutes.fr/feeds/rss/une"),
+    # 🌍 Actualités générales
+    ("Le Monde",          "https://www.lemonde.fr/rss/une.xml"),
+    ("Le Figaro",         "https://www.lefigaro.fr/rss/figaro_actualites.xml"),
+    ("France Info",       "https://www.francetvinfo.fr/titres.rss"),
+    ("RFI",               "https://www.rfi.fr/fr/rss"),
+    ("20 Minutes",        "https://www.20minutes.fr/feeds/rss/une"),
+    # 💰 Économie & Finance
+    ("Les Échos",         "https://www.lesechos.fr/rss/rss_une.xml"),
+    ("BFM Business",      "https://www.bfmtv.com/rss/economie/"),
+    ("Le Monde Économie", "https://www.lemonde.fr/economie/rss_full.xml"),
+    ("Capital",           "https://www.capital.fr/feed"),
+    ("Boursorama",        "https://www.boursorama.com/rss/actualites/"),
 ]
 
 def fetch_rss() -> list:
@@ -195,7 +202,9 @@ def format_message(article: dict) -> str:
     if desc:
         msg += f"{desc}\n\n"
     msg += f"🔗 <a href='{url}'>Lire l'article complet</a>\n\n"
-    msg += f"📡 <i>{source} • {now}</i>"
+    msg += f"📡 <i>{source} • {now}</i>\n\n"
+    msg += f"➖➖➖➖➖➖➖➖➖➖\n"
+    msg += f"👉 <i>Tu aimes ces infos ? Abonne-toi à @news045_au et partage à tes amis !</i> 🙏"
     return msg
 
 # ══════════════════════════════════════════════════════════
